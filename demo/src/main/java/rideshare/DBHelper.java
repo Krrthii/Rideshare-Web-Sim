@@ -7,20 +7,49 @@ public class DBHelper {
     private static final String USER = "root"; // replace with your MySQL username
     private static final String PASSWORD = "12345"; // replace with your actual password
 
-    public static boolean insertDestination(String address) {
-        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD);
-             PreparedStatement stmt = conn.prepareStatement(
-                 "INSERT INTO test (prop1, prop2, prop3) VALUES (?, ?, ?)")) {
+    public static boolean insertDestination(String username, String destination) {
+    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+        PreparedStatement stmt = conn.prepareStatement(
+            "INSERT INTO test (username, destination) VALUES (?, ?)"
+        );
+        stmt.setString(1, username);
+        stmt.setString(2, destination);
+        stmt.executeUpdate();
+        return true;
+    } catch (SQLException e) {
+        e.printStackTrace();
+        return false;
+    }
+}
 
-            stmt.setInt(1, 34); // hardcoded rider_id for now
-            stmt.setFloat(2, (float) 5.49);
-            stmt.setString(3, address);
-            stmt.executeUpdate();
-            return true;
-
+    public static boolean riderExists(String username) {
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            PreparedStatement stmt = conn.prepareStatement("SELECT 1 FROM rider WHERE username = ?");
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+            return rs.next(); // true if a row exists
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
     }
+
+public static boolean insertRider(String username, String name, String email, String phone, String payment) {
+    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+        PreparedStatement stmt = conn.prepareStatement(
+            "INSERT INTO rider (username, name, email, phone, payment_info) VALUES (?, ?, ?, ?, ?)"
+        );
+        stmt.setString(1, username);
+        stmt.setString(2, name);
+        stmt.setString(3, email);
+        stmt.setString(4, phone);
+        stmt.setString(5, payment);
+        stmt.executeUpdate();
+        return true;
+    } catch (SQLException e) {
+        e.printStackTrace();
+        return false;
+    }
+}
+
 }

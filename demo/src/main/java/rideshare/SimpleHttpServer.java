@@ -6,6 +6,7 @@ import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -15,7 +16,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 
 import org.json.JSONObject;
-import org.json.JSONTokener;
 
 import java.nio.charset.StandardCharsets;
 
@@ -23,41 +23,21 @@ import java.nio.charset.StandardCharsets;
 public class SimpleHttpServer {
     public static void main(String[] args) throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
-        server.createContext("/", new HelloHandler());
-        server.setExecutor(null); // creates a default executor
+
+        // Serve static HTML pages
+        server.createContext("/login", new StaticFileHandler("login.html"));
+        server.createContext("/register", new StaticFileHandler("register.html"));
+        server.createContext("/requestride", new StaticFileHandler("requestride.html")); // GET: serve page
+        server.createContext("/submitDestination", new SubmitHandler());       // POST: handle data
+        server.createContext("/checkUser", new CheckUserHandler());
+        server.createContext("/registerUser", new RegisterUserHandler());
+
+        // root redirects to login
+        server.createContext("/", new RedirectHandler("/login"));
+
+        server.setExecutor(null);
         server.start();
         System.out.println("Server started at http://localhost:8080");
-        server.createContext("/submit", new SubmitHandler());
-    }
-
-    static class HelloHandler implements HttpHandler {
-    public void handle(HttpExchange exchange) throws IOException {
-        String response;
-        int statusCode;
-
-        try {
-            String html = Files.readString(
-                Paths.get(System.getProperty("user.dir"), "demo", "webcontent", "save.html"),
-                StandardCharsets.UTF_8
-            );
-            exchange.getResponseHeaders().set("Content-Type", "text/html");
-            response = html;
-            statusCode = 200;
-
-            // DBHelper
-            // boolean success = DBHelper.insertDestination("Test Destination");
-
-        } catch (IOException e) {
-            e.printStackTrace(); // log the error
-            response = "<h1>500 Internal Server Error</h1><p>Could not load HTML file.</p>";
-            statusCode = 500;
-        }
-
-        exchange.sendResponseHeaders(statusCode, response.getBytes().length);
-        OutputStream os = exchange.getResponseBody();
-        os.write(response.getBytes());
-        os.close();
-        }
     }
 
     static class SubmitHandler implements HttpHandler {
@@ -66,25 +46,110 @@ public class SimpleHttpServer {
             InputStream is = exchange.getRequestBody();
             String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
 
-            try {
-                org.json.JSONObject json = new org.json.JSONObject(body);
-                System.out.println("Using JSONObject from: " + JSONObject.class.getProtectionDomain().getCodeSource().getLocation());
-                String destination = json.getString("destination");
-                boolean success = DBHelper.insertDestination(destination);
-                String response = success ? "Destination saved!" : "Failed to save.";
+            JSONObject json = new JSONObject(body);
+            String username = json.getString("username");
+            String destination = json.getString("destination");
 
-                exchange.sendResponseHeaders(200, response.getBytes().length);
-                OutputStream os = exchange.getResponseBody();
-                os.write(response.getBytes());
-                os.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-                exchange.sendResponseHeaders(400, -1); // Bad Request
+            boolean success = DBHelper.insertDestination(username, destination);
+
+            String response = "";
+
+            if (success) {
+                response = "Destination saved!";
+            } else {
+                response = "Failed to save.";
             }
+
+            exchange.sendResponseHeaders(200, response.getBytes().length);
+            OutputStream os = exchange.getResponseBody();
+            os.write(response.getBytes());
+            os.close();
         } else {
-            exchange.sendResponseHeaders(405, -1); // Method Not Allowed
+            exchange.sendResponseHeaders(405, -1);
         }
         }
     }
+
+    static class StaticFileHandler implements HttpHandler {
+    private final String filename;
+
+    public StaticFileHandler(String filename) {
+        this.filename = filename;
+    }
+
+    public void handle(HttpExchange exchange) throws IOException {
+        File file = new File("demo/webcontent", filename);
+        byte[] bytes = Files.readAllBytes(file.toPath());
+
+        exchange.getResponseHeaders().set("Content-Type", "text/html");
+        exchange.sendResponseHeaders(200, bytes.length);
+        OutputStream os = exchange.getResponseBody();
+        os.write(bytes);
+        os.close();
+    }
+}
+
+static class RedirectHandler implements HttpHandler {
+    private final String target;
+
+    public RedirectHandler(String target) {
+        this.target = target;
+    }
+
+    public void handle(HttpExchange exchange) throws IOException {
+        exchange.getResponseHeaders().set("Location", target);
+        exchange.sendResponseHeaders(302, -1); // HTTP 302 Found
+    }
+}
+
+static class CheckUserHandler implements HttpHandler {
+    public void handle(HttpExchange exchange) throws IOException {
+        if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            JSONObject json = new JSONObject(body);
+            String username = json.getString("username");
+
+            boolean exists = DBHelper.riderExists(username);
+
+            String response = "";
+
+            if (exists) {
+                response = "OK";
+            } else {
+                response = "NOT_FOUND";
+            }
+
+            exchange.sendResponseHeaders(200, response.length());
+            exchange.getResponseBody().write(response.getBytes());
+            exchange.getResponseBody().close();
+        } else {
+            exchange.sendResponseHeaders(405, -1);
+        }
+    }
+}
+
+static class RegisterUserHandler implements HttpHandler {
+    public void handle(HttpExchange exchange) throws IOException {
+        if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            JSONObject json = new JSONObject(body);
+
+            boolean success = DBHelper.insertRider(
+                json.getString("username"),
+                json.getString("name"),
+                json.getString("email"),
+                json.getString("phone"),
+                json.getString("payment")
+            );
+
+            String response = success ? "Registration successful! Sending you back to login..." : "Registration failed.";
+            exchange.sendResponseHeaders(200, response.length());
+            exchange.getResponseBody().write(response.getBytes());
+            exchange.getResponseBody().close();
+        } else {
+            exchange.sendResponseHeaders(405, -1);
+        }
+    }
+}
 
 }

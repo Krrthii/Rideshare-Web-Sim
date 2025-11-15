@@ -1,0 +1,33 @@
+<h2>Enter your username</h2>
+<input type="text" id="username" placeholder="Username">
+<button onclick="checkLogin()">Login</button>
+<button onclick="goToRegister()">Register</button>
+<p id="status"></p>
+
+<script>
+function checkLogin() {
+  const username = document.getElementById("username").value;
+
+  fetch("/checkUser", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username })
+  })
+  .then(res => res.text())
+  .then(text => {
+    if (text === "OK") {
+      window.location.href = "/requestride?username=" + encodeURIComponent(username);
+    } else {
+      document.getElementById("status").innerText = "Username not found. Please register.";
+    }
+  })
+  .catch(err => {
+    document.getElementById("status").innerText = "Error checking username.";
+    console.error(err);
+  });
+}
+
+function goToRegister() {
+  window.location.href = "/register";
+}
+</script>
