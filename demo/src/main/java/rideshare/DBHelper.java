@@ -52,4 +52,23 @@ public static boolean insertRider(String username, String name, String email, St
     }
 }
 
+public static boolean insertDriver(String username, String name, String email, String phone, String bank, String vehicle) {
+    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+        PreparedStatement stmt = conn.prepareStatement(
+            "INSERT INTO driver (username, name, email, phone, bank_id, vehicle_type) VALUES (?, ?, ?, ?, ?, ?)"
+        );
+        stmt.setString(1, username);
+        stmt.setString(2, name);
+        stmt.setString(3, email);
+        stmt.setString(4, phone);
+        stmt.setString(5, bank);
+        stmt.setString(6, vehicle);
+        stmt.executeUpdate();
+        return true;
+    } catch (SQLException e) {
+        e.printStackTrace();
+        return false;
+    }
+}
+
 }

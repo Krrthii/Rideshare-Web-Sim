@@ -134,13 +134,31 @@ static class RegisterUserHandler implements HttpHandler {
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             JSONObject json = new JSONObject(body);
 
-            boolean success = DBHelper.insertRider(
+            boolean success = false;
+
+            System.out.println(json);
+
+            if (json.getString("role").equals("rider")) {
+                success = DBHelper.insertRider(
                 json.getString("username"),
                 json.getString("name"),
                 json.getString("email"),
                 json.getString("phone"),
                 json.getString("payment")
             );
+            }
+            
+            if (json.getString("role").equals("driver")) {
+                success = DBHelper.insertDriver(
+                json.getString("username"),
+                json.getString("name"),
+                json.getString("email"),
+                json.getString("phone"),
+                json.getString("bank"),
+                json.getString("vehicle")
+            );
+            }
+            
 
             String response = success ? "Registration successful! Sending you back to login..." : "Registration failed.";
             exchange.sendResponseHeaders(200, response.length());
