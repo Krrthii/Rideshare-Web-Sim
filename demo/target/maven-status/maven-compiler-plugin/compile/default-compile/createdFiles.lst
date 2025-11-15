@@ -1,3 +1,5 @@
-rideshare\DBHelper.class
 rideshare\SimpleHttpServer$HelloHandler.class
+rideshare\JSONSerializer.class
+rideshare\SimpleHttpServer$SubmitHandler.class
+rideshare\DBHelper.class
 rideshare\SimpleHttpServer.class
