@@ -2,31 +2,88 @@
 <html>
 <head><title>Submit Destination</title></head>
 <body>
-  <h2>Enter your destination</h2>
-  <input type="text" id="destination" placeholder="Destination">
-  <button onclick="submitDestination()">Submit</button>
+    <div id="bookingForm" style="display:block">
+        <input type="text" id="pickup" placeholder="pickup">
+        <input type="text" id="destination" placeholder="Destination">
+        <button onclick="createBooking()">Search for Driver</button>
+    </div>
+    <div id="waitingScreen" style="display:none">
+        <p>Waiting for a driver...</p>
+        <button onclick="cancelSearch()">Cancel Search</button>
+    </div>
+  <h2>Enter your pickup location and destination</h2>
+  
 
   <p id="status"></p> <!-- This is where the message will appear -->
 
-  <script>
-    function submitDestination() {
-      const destination = document.getElementById("destination").value;
-      const username = new URLSearchParams(window.location.search).get("username");
 
-      fetch("/submitDestination", {
+
+  <script>
+    function createBooking() {
+        const username = new URLSearchParams(window.location.search).get("username");
+        const pickup = document.getElementById("pickup").value;
+        const destination = document.getElementById("destination").value;
+      
+
+      fetch("/createBooking", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, destination })
+        body: JSON.stringify({ username, pickup, destination })
       })
       .then(res => res.text())
       .then(text => {
-        document.getElementById("status").innerText = text;
+        //document.getElementById("status").innerText = text;
+        //the text = bookingId
+        document.getElementById("bookingForm").style.display = "none";
+        document.getElementById("waitingScreen").style.display = "block";
+
+        const bookingId = parseInt(text); // assuming backend returns booking ID as plain text
+
+        const poll = setInterval(() => {
+        fetch(`/checkBookingStatus?booking_id=${bookingId}`, {method:"GET"})
+            .then(res => res.json())
+            .then(data => {
+            if (data.status === "accepted") {
+                clearInterval(poll);
+                document.getElementById("status").innerText = "Driver assigned! Confirmation code to give to driver: " + data.confirmCode;
+            } else if (data.status === "cancelled") {
+                clearInterval(poll);
+                document.getElementById("status").innerText = "Booking was cancelled.";
+                revertToOldLayout();
+                }
+            });
+        }, 3000); // poll every 3 seconds
+
+
       })
       .catch(err => {
         document.getElementById("status").innerText = "Error saving destination.";
         console.error(err);
       });
     }
+
+    function cancelSearch() {
+    fetch("/cancelBooking", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bookingId })
+  })
+    .then(res => res.text())
+    .then(text => {
+    if (text === "OK") {
+        document.getElementById("status").innerText = "Cancellation successful.";
+        revertToOldLayout();
+    } else {
+      document.getElementById("status").innerText = "Cancellation Failed.";
+    }
+  })
+}
+
+function revertToOldLayout() {
+  document.getElementById("waitingScreen").style.display = "none";
+  document.getElementById("bookingForm").style.display = "block";
+}
+
   </script>
 </body>
 </html>

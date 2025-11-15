@@ -1,24 +1,37 @@
 package rideshare;
 
 import java.sql.*;
+import java.util.Random;
+
+import org.json.JSONObject;
 
 public class DBHelper {
     private static final String URL = "jdbc:mysql://localhost:3306/rideshare";
     private static final String USER = "root"; // replace with your MySQL username
     private static final String PASSWORD = "12345"; // replace with your actual password
 
-    public static boolean insertDestination(String username, String destination) {
+    public static int insertBooking(String username, String pickup, String destination) {
     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+        int confirmCode = 1000 + new Random().nextInt(9000); // generates 1000–9999
         PreparedStatement stmt = conn.prepareStatement(
-            "INSERT INTO test (username, destination) VALUES (?, ?)"
+            "INSERT INTO booking (rider_id, pickup, destination, confirm_code) VALUES (SELECT rider_id from rider where username=?, ?, ?)"
         );
         stmt.setString(1, username);
-        stmt.setString(2, destination);
+        stmt.setString(2, pickup);
+        stmt.setString(3, destination);
+        stmt.setInt(4, confirmCode);
         stmt.executeUpdate();
-        return true;
+
+        ResultSet generatedKeys = stmt.getGeneratedKeys();
+        if (generatedKeys.next()) {
+                return generatedKeys.getInt(1); // booking_id
+            } else {
+                throw new SQLException("Booking creation failed, no ID obtained.");
+            }
+
     } catch (SQLException e) {
         e.printStackTrace();
-        return false;
+        return -1;
     }
 }
 
@@ -75,6 +88,40 @@ public static boolean insertDriver(String username, String name, String email, S
         stmt.setString(4, phone);
         stmt.setString(5, bank);
         stmt.setString(6, vehicle);
+        stmt.executeUpdate();
+        return true;
+    } catch (SQLException e) {
+        e.printStackTrace();
+        return false;
+    }
+}
+
+    public static JSONObject getBookingStatus(int bookingId) {
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            PreparedStatement stmt = conn.prepareStatement("SELECT booking_status, driver_id, confirm_code FROM booking WHERE booking_id = ?");
+            stmt.setInt(1, bookingId);
+            ResultSet rs = stmt.executeQuery();
+            JSONObject result = new JSONObject();
+            if (rs.next()) {
+                result.put("status", rs.getString("status"));
+                result.put("driverId", rs.getInt("driver_id"));
+                result.put("confirmCode", rs.getInt("confirm_code"));
+            }
+
+            return result;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+public static boolean cancelBooking(int bookingId) {
+    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+        PreparedStatement stmt = conn.prepareStatement(
+            "UPDATE booking SET booking_status = 'cancelled' WHERE booking_id = ? AND booking_status = 'pending'"
+        );
+        stmt.setInt(1, bookingId);
         stmt.executeUpdate();
         return true;
     } catch (SQLException e) {

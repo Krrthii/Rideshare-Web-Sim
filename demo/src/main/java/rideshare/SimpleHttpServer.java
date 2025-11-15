@@ -14,6 +14,8 @@ import java.net.InetSocketAddress;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.json.JSONObject;
 
@@ -29,7 +31,9 @@ public class SimpleHttpServer {
         server.createContext("/register", new StaticFileHandler("register.html"));
         server.createContext("/requestride", new StaticFileHandler("requestride.html")); // GET: serve page
         server.createContext("/findride", new StaticFileHandler("findride.html"));
-        server.createContext("/submitDestination", new SubmitHandler());       // POST: handle data
+        server.createContext("/createBooking", new createBookingHandler());       // POST: handle data
+        server.createContext("/checkBookingStatus", new CheckBookingStatusHandler());
+        server.createContext("/cancelBooking", new CancelBookingHandler());
         server.createContext("/checkUser", new CheckUserHandler());
         server.createContext("/registerUser", new RegisterUserHandler());
 
@@ -41,27 +45,28 @@ public class SimpleHttpServer {
         System.out.println("Server started at http://localhost:8080");
     }
 
-    static class SubmitHandler implements HttpHandler {
+    static class createBookingHandler implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
             InputStream is = exchange.getRequestBody();
             String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
 
             JSONObject json = new JSONObject(body);
-            String username = json.getString("username");
-            String destination = json.getString("destination");
 
-            boolean success = DBHelper.insertDestination(username, destination);
+            int success = DBHelper.insertBooking(
+                json.getString("username"),
+                json.getString("pickup"),
+                json.getString("destination"));
 
-            String response = "";
+            String response = String.valueOf(success);
 
-            if (success) {
-                response = "Destination saved!";
+            if (success == -1) {
+                exchange.sendResponseHeaders(500, response.getBytes().length); // triggers .catch()
             } else {
-                response = "Failed to save.";
+                exchange.sendResponseHeaders(200, response.getBytes().length); // triggers .then()
             }
 
-            exchange.sendResponseHeaders(200, response.getBytes().length);
+            //exchange.sendResponseHeaders(200, response.getBytes().length);
             OutputStream os = exchange.getResponseBody();
             os.write(response.getBytes());
             os.close();
@@ -178,5 +183,66 @@ static class RegisterUserHandler implements HttpHandler {
         }
     }
 }
+
+static class CheckBookingStatusHandler implements HttpHandler {
+    public void handle(HttpExchange exchange) throws IOException {
+        if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+            String query = exchange.getRequestURI().getQuery(); // e.g., "booking_id=123"
+            Map<String, String> params = new HashMap<>();
+            for (String pair : query.split("&")) {
+                String[] parts = pair.split("=");
+                if (parts.length == 2) {
+                    params.put(parts[0], parts[1]);
+                }
+            }
+
+            String response;
+            try {
+                int bookingId = Integer.parseInt(params.get("booking_id"));
+                JSONObject result = DBHelper.getBookingStatus(bookingId);
+                response = result.toString();
+                System.out.println(response);
+                exchange.sendResponseHeaders(200, response.getBytes().length);
+            } catch (Exception e) {
+                e.printStackTrace();
+                response = "{\"error\":\"Unable to retrieve booking status.\"}";
+                exchange.sendResponseHeaders(500, response.getBytes().length);
+            }
+
+            exchange.getResponseBody().write(response.getBytes());
+            exchange.getResponseBody().close();
+        } else {
+            exchange.sendResponseHeaders(405, -1); // Method Not Allowed
+        }
+    }
+}
+
+static class CancelBookingHandler implements HttpHandler {
+    public void handle(HttpExchange exchange) throws IOException {
+        if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            JSONObject json = new JSONObject(body);
+            int bookingId = Integer.parseInt(json.getString("bookingId"));
+
+            String response;
+
+            boolean result = DBHelper.cancelBooking(bookingId);
+
+            if (result) {
+                response = "OK";
+            } else {
+                response = "FAIL";
+            }
+
+            exchange.sendResponseHeaders(200, response.getBytes().length);
+
+            exchange.getResponseBody().write(response.getBytes());
+            exchange.getResponseBody().close();
+        } else {
+            exchange.sendResponseHeaders(405, -1); // Method Not Allowed
+        }
+    }
+}
+
 
 }
