@@ -28,6 +28,7 @@ public class SimpleHttpServer {
         server.createContext("/login", new StaticFileHandler("login.html"));
         server.createContext("/register", new StaticFileHandler("register.html"));
         server.createContext("/requestride", new StaticFileHandler("requestride.html")); // GET: serve page
+        server.createContext("/findride", new StaticFileHandler("findride.html"));
         server.createContext("/submitDestination", new SubmitHandler());       // POST: handle data
         server.createContext("/checkUser", new CheckUserHandler());
         server.createContext("/registerUser", new RegisterUserHandler());
@@ -109,14 +110,22 @@ static class CheckUserHandler implements HttpHandler {
             JSONObject json = new JSONObject(body);
             String username = json.getString("username");
 
-            boolean exists = DBHelper.riderExists(username);
+            boolean exists = false;
+
+            exists = DBHelper.riderExists(username);
 
             String response = "";
 
             if (exists) {
-                response = "OK";
+                response = "OKRider";
             } else {
-                response = "NOT_FOUND";
+                exists = DBHelper.driverExists(username);
+                if (exists) {
+                    response = "OKDriver";
+                }
+                else {
+                    response = "NOT_FOUND";
+                }
             }
 
             exchange.sendResponseHeaders(200, response.length());

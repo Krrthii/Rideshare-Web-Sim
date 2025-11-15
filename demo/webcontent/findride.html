@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head><title>Driver vroom vroom</title></head>
+<body>
+  <h2>Enter your destination</h2>
+  <input type="text" id="destination" placeholder="Destination">
+  <button onclick="submitDestination()">Submit</button>
+
+  <p id="status"></p> <!-- This is where the message will appear -->
+
+  <script>
+    function submitDestination() {
+      const destination = document.getElementById("destination").value;
+      const username = new URLSearchParams(window.location.search).get("username");
+
+      fetch("/submitDestination", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, destination })
+      })
+      .then(res => res.text())
+      .then(text => {
+        document.getElementById("status").innerText = text;
+      })
+      .catch(err => {
+        document.getElementById("status").innerText = "Error saving destination.";
+        console.error(err);
+      });
+    }
+  </script>
+</body>
+</html>

@@ -34,6 +34,18 @@ public class DBHelper {
         }
     }
 
+    public static boolean driverExists(String username) {
+        try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+            PreparedStatement stmt = conn.prepareStatement("SELECT 1 FROM driver WHERE username = ?");
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+            return rs.next(); // true if a row exists
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
 public static boolean insertRider(String username, String name, String email, String phone, String payment) {
     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
         PreparedStatement stmt = conn.prepareStatement(

@@ -15,8 +15,10 @@ function checkLogin() {
   })
   .then(res => res.text())
   .then(text => {
-    if (text === "OK") {
+    if (text === "OKRider") {
       window.location.href = "/requestride?username=" + encodeURIComponent(username);
+    } else if (text === "OKDriver") {
+      window.location.href = "/findride?username=" + encodeURIComponent(username);
     } else {
       document.getElementById("status").innerText = "Username not found. Please register.";
     }
