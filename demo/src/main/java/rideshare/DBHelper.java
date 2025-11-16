@@ -14,12 +14,14 @@ public class DBHelper {
     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
         int confirmCode = 1000 + new Random().nextInt(9000); // generates 1000–9999
         PreparedStatement stmt = conn.prepareStatement(
-            "INSERT INTO booking (rider_id, pickup, destination, confirm_code) VALUES (SELECT rider_id from rider where username=?, ?, ?)"
+            "INSERT INTO booking (rider_id, pickup_loc, dropoff_loc, confirm_code) " +
+            "SELECT rider_id, ?, ?, ? FROM rider WHERE username=?",
+            Statement.RETURN_GENERATED_KEYS
         );
-        stmt.setString(1, username);
-        stmt.setString(2, pickup);
-        stmt.setString(3, destination);
-        stmt.setInt(4, confirmCode);
+        stmt.setString(1, pickup);
+        stmt.setString(2, destination);
+        stmt.setInt(3, confirmCode);
+        stmt.setString(4, username);
         stmt.executeUpdate();
 
         ResultSet generatedKeys = stmt.getGeneratedKeys();
@@ -103,7 +105,7 @@ public static boolean insertDriver(String username, String name, String email, S
             ResultSet rs = stmt.executeQuery();
             JSONObject result = new JSONObject();
             if (rs.next()) {
-                result.put("status", rs.getString("status"));
+                result.put("status", rs.getString("booking_status"));
                 result.put("driverId", rs.getInt("driver_id"));
                 result.put("confirmCode", rs.getInt("confirm_code"));
             }

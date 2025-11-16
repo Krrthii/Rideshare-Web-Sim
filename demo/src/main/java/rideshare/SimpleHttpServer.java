@@ -220,14 +220,18 @@ static class CheckBookingStatusHandler implements HttpHandler {
 static class CancelBookingHandler implements HttpHandler {
     public void handle(HttpExchange exchange) throws IOException {
         if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
-            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-            JSONObject json = new JSONObject(body);
-            int bookingId = Integer.parseInt(json.getString("bookingId"));
+            String query = exchange.getRequestURI().getQuery(); // e.g., "booking_id=123"
+            Map<String, String> params = new HashMap<>();
+            for (String pair : query.split("&")) {
+                String[] parts = pair.split("=");
+                if (parts.length == 2) {
+                    params.put(parts[0], parts[1]);
+                }
+            }
 
             String response;
-
+            int bookingId = Integer.parseInt(params.get("booking_id"));
             boolean result = DBHelper.cancelBooking(bookingId);
-
             if (result) {
                 response = "OK";
             } else {

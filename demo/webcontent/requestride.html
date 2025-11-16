@@ -19,6 +19,9 @@
 
 
   <script>
+
+    let bookingId = 0;
+
     function createBooking() {
         const username = new URLSearchParams(window.location.search).get("username");
         const pickup = document.getElementById("pickup").value;
@@ -37,7 +40,7 @@
         document.getElementById("bookingForm").style.display = "none";
         document.getElementById("waitingScreen").style.display = "block";
 
-        const bookingId = parseInt(text); // assuming backend returns booking ID as plain text
+        bookingId = parseInt(text); // assuming backend returns booking ID as plain text
 
         const poll = setInterval(() => {
         fetch(`/checkBookingStatus?booking_id=${bookingId}`, {method:"GET"})
@@ -63,11 +66,7 @@
     }
 
     function cancelSearch() {
-    fetch("/cancelBooking", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ bookingId })
-  })
+    fetch(`/cancelBooking?booking_id=${bookingId}`, {method:"POST"})
     .then(res => res.text())
     .then(text => {
     if (text === "OK") {

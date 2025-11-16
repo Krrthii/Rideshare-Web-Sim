@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head><title>Driver vroom vroom</title></head>
+<body>
+  <div id="homeScreen" style="display:block">  
+      <h2>Welcome. Press the button to begin searching for riders.</h2>
+      <!-- <input type="text" id="destination" placeholder="Destination"> -->
+      <button onclick="searchRiders()">Search for Riders</button>
+  </div>
+  <div id="searchScreen" style="display:none">  
+      <h2>Welcome. Press the button to begin searching for riders.</h2>
+      <!-- <input type="text" id="destination" placeholder="Destination"> -->
+      <button onclick="searchRiders()">Search for Riders</button>
+  </div>
+
+
+
+
+  <p id="status"></p> <!-- This is where the message will appear -->
+
+  <script>
+    function searchRiders() {
+      // Every 3 seconds, search the booking table for any pending riders that have not been shown to us before.
+      // Also give us a cancel button to return to the initial state of not searching.
+      // If one shows up, show it to us, and we can either accept or decline.
+      // If decline, save that booking ID so we don't have to repeat it.
+      // If accept, show an input prompt and button that awaits the confirmation code, as well as a cancel button.
+      // Once the confirmation code is added, a ride is created.
+      // The driver can cancel or complete the ride. The rider can cancel.
+        //const username = new URLSearchParams(window.location.search).get("username");
+        //const pickup = document.getElementById("pickup").value;
+        //const destination = document.getElementById("destination").value;
+
+        document.getElementById("homeScreen").style.display = "none";
+        document.getElementById("searchScreen").style.display = "none";
+      
+        const poll = setInterval(() => {
+        fetch("/searchRider", {method:"GET"})
+            .then(res => res.json()) //This should either give nothing, or the booking ID found.
+            .then(data => {
+            if (data.status === "found") {
+                //clearInterval(poll);
+                //Add a list of blocks for each found. Each with accept or refuse. If refuse, remove it from the list
+                //And update the page accordingly.
+                //If accept, remove all of the list, then go to the next phase (confirmation input, submit, cancel).
+            } else if (data.status === "cancelled") {
+                clearInterval(poll);
+                document.getElementById("status").innerText = "Booking was cancelled.";
+                revertToOldLayout();
+                }
+            });
+        }, 3000) // poll every 3 seconds
+
+          .catch(err => {
+              document.getElementById("status").innerText = "Error saving destination.";
+              console.error(err);
+      });
+    }
+
+    function revertToOldLayout() {
+      pass
+    }
+  </script>
+</body>
+</html>
