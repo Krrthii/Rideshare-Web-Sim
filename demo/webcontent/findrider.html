@@ -8,17 +8,28 @@
       <button onclick="searchRiders()">Search for Riders</button>
   </div>
   <div id="searchScreen" style="display:none">  
-      <h2>Welcome. Press the button to begin searching for riders.</h2>
+      <h2>Searching for riders...</h2>
       <!-- <input type="text" id="destination" placeholder="Destination"> -->
-      <button onclick="searchRiders()">Search for Riders</button>
+      <button onclick="cancelSearch()">Cancel Search</button>
   </div>
 
+  <div id="bookingList"></div>
 
+    <div id="confirmationBox" style="display:none;">
+      <h2>Enter confirmation code from the rider.</h2>
+    <input type="text" id="confirmCode" placeholder="Enter confirmation code">
+    <button onclick="verifyCode()">Verify</button>
+  </div>
 
 
   <p id="status"></p> <!-- This is where the message will appear -->
 
   <script>
+    let poll;
+    let rejectedBookings = new Set(); // Track rejected IDs
+    let acceptedBooking;
+    const username = new URLSearchParams(window.location.search).get("username");
+
     function searchRiders() {
       // Every 3 seconds, search the booking table for any pending riders that have not been shown to us before.
       // Also give us a cancel button to return to the initial state of not searching.
@@ -32,27 +43,33 @@
         //const destination = document.getElementById("destination").value;
 
         document.getElementById("homeScreen").style.display = "none";
-        document.getElementById("searchScreen").style.display = "none";
+        document.getElementById("searchScreen").style.display = "block";
       
-        const poll = setInterval(() => {
+        // set driver search_status to "searching"
+        updateDriverStatus("searching");
+
+        poll = setInterval(() => {
         fetch("/searchRider", {method:"GET"})
             .then(res => res.json()) //This should either give nothing, or the booking ID found.
             .then(data => {
-            if (data.status === "found") {
-                //clearInterval(poll);
-                //Add a list of blocks for each found. Each with accept or refuse. If refuse, remove it from the list
-                //And update the page accordingly.
-                //If accept, remove all of the list, then go to the next phase (confirmation input, submit, cancel).
-            } else if (data.status === "cancelled") {
-                clearInterval(poll);
-                document.getElementById("status").innerText = "Booking was cancelled.";
-                revertToOldLayout();
-                }
-            });
+            if (data.status === "found" && Array.isArray(data.bookings)) {
+              data.bookings.forEach(booking => {
+                const bookingId = booking.bookingId;
+
+                // Skip if already rejected
+                if (rejectedBookings.has(bookingId)) return;
+
+                // Add booking to the list
+                addBooking(bookingId, booking.pickup, booking.destination);
+
+
+
+              });
+        }});
         }, 3000) // poll every 3 seconds
 
           .catch(err => {
-              document.getElementById("status").innerText = "Error saving destination.";
+              document.getElementById("status").innerText = "Error find rider.";
               console.error(err);
       });
     }
@@ -60,6 +77,68 @@
     function revertToOldLayout() {
       pass
     }
+
+    function addBooking(bookingId, pickup, destination) {
+      let bookingList = document.getElementById("bookingList");
+
+      let newBooking = document.createElement("div");
+      newBooking.id = "booking_" + bookingId;
+      newBooking.innerHTML = `
+        <p>Booking #${bookingId}: ${pickup} -> ${destination}</p>
+        <button onclick="acceptBooking('${bookingId}')">Accept</button>
+        <button onclick="rejectBooking('${bookingId}')">Reject</button>
+      `;
+
+      bookingList.appendChild(newBooking);
+
+      rejectedBookings.add(bookingId);
+    }
+
+    function acceptBooking(bookingId) {
+      fetch("/acceptBooking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }) //Given this body, change the status of the booking with this bookingID to "accepted"
+      });
+
+      clearInterval(poll);
+
+      acceptedBooking = bookingId;
+
+      updateDriverStatus("driving");
+
+      document.getElementById("bookingList").innerHTML = "";
+      document.getElementById("searchScreen").style.display = "none";
+      document.getElementById("confirmationBox").style.display = "block";
+    }
+
+    function rejectBooking(bookingId) {
+      rejectedBookings.add(bookingId); //Remember all rejected bookingId's
+      document.getElementById("booking_" + bookingId).remove();
+    }
+
+    function cancelSearch() {
+      clearInterval(poll);
+      document.getElementById("status").innerText = "Searching was cancelled.";
+      rejectedBookings = new Set();
+      updateDriverStatus("standby");
+      document.getElementById("homeScreen").style.display = "block";
+      document.getElementById("searchScreen").style.display = "home";
+    }
+
+    function updateDriverStatus(search_status) {
+      fetch("/updateDriverStatus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: username,   // however you track the logged-in driver
+          search_status: search_status
+        })
+      })
+    }
+
+
+
   </script>
 </body>
 </html>

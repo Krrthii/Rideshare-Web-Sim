@@ -49,6 +49,7 @@
             if (data.status === "accepted") {
                 clearInterval(poll);
                 document.getElementById("status").innerText = "Driver assigned! Confirmation code to give to driver: " + data.confirmCode;
+                startRide();
             } else if (data.status === "cancelled") {
                 clearInterval(poll);
                 document.getElementById("status").innerText = "Booking was cancelled.";
@@ -82,6 +83,8 @@ function revertToOldLayout() {
   document.getElementById("waitingScreen").style.display = "none";
   document.getElementById("bookingForm").style.display = "block";
 }
+
+// function start
 
   </script>
 </body>

@@ -15,8 +15,10 @@ import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
@@ -30,12 +32,16 @@ public class SimpleHttpServer {
         server.createContext("/login", new StaticFileHandler("login.html"));
         server.createContext("/register", new StaticFileHandler("register.html"));
         server.createContext("/requestride", new StaticFileHandler("requestride.html")); // GET: serve page
-        server.createContext("/findride", new StaticFileHandler("findride.html"));
+        server.createContext("/findrider", new StaticFileHandler("findrider.html"));
         server.createContext("/createBooking", new createBookingHandler());       // POST: handle data
         server.createContext("/checkBookingStatus", new CheckBookingStatusHandler());
         server.createContext("/cancelBooking", new CancelBookingHandler());
         server.createContext("/checkUser", new CheckUserHandler());
         server.createContext("/registerUser", new RegisterUserHandler());
+
+        server.createContext("/searchRider", new searchRiderHandler());
+        server.createContext("/acceptBooking", new acceptBookingHandler());
+        server.createContext("/updateDriverStatus", new updateDriverStatusHandler());
 
         // root redirects to login
         server.createContext("/", new RedirectHandler("/login"));
@@ -201,7 +207,7 @@ static class CheckBookingStatusHandler implements HttpHandler {
                 int bookingId = Integer.parseInt(params.get("booking_id"));
                 JSONObject result = DBHelper.getBookingStatus(bookingId);
                 response = result.toString();
-                System.out.println(response);
+                //System.out.println(response);
                 exchange.sendResponseHeaders(200, response.getBytes().length);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -248,5 +254,92 @@ static class CancelBookingHandler implements HttpHandler {
     }
 }
 
+static class searchRiderHandler implements HttpHandler {
+    public void handle(HttpExchange exchange) throws IOException {
+        if ("GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+
+            String response;
+            try {
+                List<RiderBooking> result_bookings = DBHelper.searchRider();
+
+                JSONObject result = new JSONObject();
+                if (result_bookings.isEmpty()) {
+                    result.put("status", "not_found");
+                    result.put("bookings", new JSONArray()); // empty array
+                } else {
+                    result.put("status", "found");
+                    JSONArray bookings = new JSONArray();
+                    for (RiderBooking b : result_bookings) {
+                        JSONObject obj = new JSONObject();
+                        obj.put("bookingId", b.getBookingId());
+                        obj.put("riderId", b.getRiderId());
+                        obj.put("pickup", b.getPickup());
+                        obj.put("destination", b.getDestination());
+                        bookings.put(obj);
+                    }
+                    result.put("bookings", bookings);
+                }
+
+                response = result.toString();
+                System.out.println(response);
+                exchange.sendResponseHeaders(200, response.getBytes().length);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                response = "{\"error\":\"Unable to retrieve booking status.\"}";
+                exchange.sendResponseHeaders(500, response.getBytes().length);
+            }
+
+            exchange.getResponseBody().write(response.getBytes());
+            exchange.getResponseBody().close();
+        } else {
+            exchange.sendResponseHeaders(405, -1); // Method Not Allowed
+        }
+    }
+}
+
+
+static class acceptBookingHandler implements HttpHandler {
+    public void handle(HttpExchange exchange) throws IOException {
+        if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            JSONObject json = new JSONObject(body);
+            String bookingId = json.getString("bookingId");
+
+            boolean success = false;
+
+            success = DBHelper.acceptBooking(Integer.parseInt(bookingId));
+            
+            String response = success ? "Booking successfully accepted" : "Booking acceptance failed.";
+            exchange.sendResponseHeaders(200, response.length());
+            exchange.getResponseBody().write(response.getBytes());
+            exchange.getResponseBody().close();
+        } else {
+            exchange.sendResponseHeaders(405, -1);
+        }
+    }
+}
+
+static class updateDriverStatusHandler implements HttpHandler {
+    public void handle(HttpExchange exchange) throws IOException {
+        if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            JSONObject json = new JSONObject(body);
+            String username = json.getString("username");
+            String search_status = json.getString("search_status");
+
+            boolean success = false;
+
+            success = DBHelper.updateDriverStatus(username, search_status);
+            
+            String response = success ? "Driver status successfully changed" : "Driver status change unsuccessful.";
+            exchange.sendResponseHeaders(200, response.length());
+            exchange.getResponseBody().write(response.getBytes());
+            exchange.getResponseBody().close();
+        } else {
+            exchange.sendResponseHeaders(405, -1);
+        }
+    }
+}
 
 }

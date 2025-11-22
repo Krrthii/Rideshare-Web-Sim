@@ -1,6 +1,8 @@
 package rideshare;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 import org.json.JSONObject;
@@ -121,9 +123,61 @@ public static boolean insertDriver(String username, String name, String email, S
 public static boolean cancelBooking(int bookingId) {
     try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
         PreparedStatement stmt = conn.prepareStatement(
-            "UPDATE booking SET booking_status = 'cancelled' WHERE booking_id = ? AND booking_status = 'pending'"
+            "UPDATE booking SET booking_status = 'cancelled' WHERE booking_id = ?"
         );
         stmt.setInt(1, bookingId);
+        stmt.executeUpdate();
+        return true;
+    } catch (SQLException e) {
+        e.printStackTrace();
+        return false;
+    }
+}
+
+public static List<RiderBooking> searchRider() {
+    List<RiderBooking> results = new ArrayList<>();
+    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+        PreparedStatement stmt = conn.prepareStatement(
+            "SELECT booking_id, rider_id, pickup_loc, dropoff_loc FROM booking WHERE booking_status = 'pending'"
+        );
+        ResultSet rs = stmt.executeQuery();
+
+        while (rs.next()) {
+            RiderBooking booking = new RiderBooking(
+                rs.getInt("booking_id"),
+                rs.getInt("rider_id"),
+                rs.getString("pickup_loc"),
+                rs.getString("dropoff_loc")
+            );
+            results.add(booking);
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+    return results;
+}
+
+public static boolean acceptBooking(int bookingId) {
+    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+        PreparedStatement stmt = conn.prepareStatement(
+            "UPDATE booking SET booking_status = 'accepted' WHERE booking_id = ? AND booking_status = 'pending'"
+        );
+        stmt.setInt(1, bookingId);
+        stmt.executeUpdate();
+        return true;
+    } catch (SQLException e) {
+        e.printStackTrace();
+        return false;
+    }
+}
+
+public static boolean updateDriverStatus(String username, String search_status) {
+    try (Connection conn = DriverManager.getConnection(URL, USER, PASSWORD)) {
+        PreparedStatement stmt = conn.prepareStatement(
+            "UPDATE driver SET search_status = ? WHERE username = ?"
+        );
+        stmt.setString(1, search_status);
+        stmt.setString(2, username);
         stmt.executeUpdate();
         return true;
     } catch (SQLException e) {
